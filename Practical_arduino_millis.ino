@@ -20,11 +20,11 @@
 
 
 /* Setup servo limits */
-#define closedPosition 40      // angle
-#define thrownPosition 90      // angle
+#define turnoutClosedPosition 40      // angle
+#define turnoutThrownPosition 90      // angle
 #define dangerPosition  80      // angle
 #define proceedPosition 150     // angle
-#define turnoutThrowSpeed 30  // [ms] lower number is faster
+#define turnoutMoveSpeed 30  // [ms] lower number is faster
 #define signalThrowSpeed 10   // [ms] lower number is faster
 
 
@@ -33,22 +33,22 @@
 Servo turnoutServo;
 Servo signalServo;
 
-byte turnoutAngle   = closedPosition;
-byte targetPosition = closedPosition;
+byte turnoutPosition   = turnoutClosedPosition;
+byte turnoutTarget = turnoutClosedPosition;
 byte signalPosition = proceedPosition;
 byte signalTarget   = proceedPosition;
-unsigned long turnoutThrowDelay, signalThrowDelay;
+unsigned long turnoutMoveDelay, signalThrowDelay;
 byte turnoutState = 1;
 byte turnoutTransition;
-bool turnoutClosed = true;
+bool turnoutIsClosed = true;
 
 
 
 void throwTurnout(){
-  turnoutThrowDelay = millis() + turnoutThrowSpeed;
-  if (turnoutAngle < targetPosition) turnoutAngle++;
-  if (turnoutAngle > targetPosition) turnoutAngle--;
-  turnoutServo.write(turnoutAngle);
+  turnoutMoveDelay = millis() + turnoutMoveSpeed;
+  if (turnoutPosition < turnoutTarget) turnoutPosition++;
+  if (turnoutPosition > turnoutTarget) turnoutPosition--;
+  turnoutServo.write(turnoutPosition);
 }
 
 void moveSignal(){
@@ -86,11 +86,11 @@ void setup() {
   
   /* initailise turnout and its position */
   turnoutServo.attach(turnoutServoPin);
-  turnoutServo.write(targetPosition);
+  turnoutServo.write(turnoutTarget);
   
   /* initailise colour signal and frog positions */
   colourSignalDanger(true);
-  digitalWrite(frogRelayPin, turnoutClosed);
+  digitalWrite(frogRelayPin, turnoutIsClosed);
   
   Serial.begin(9600);
 }
@@ -107,9 +107,9 @@ switch(turnoutState) {
   break;
 
   case 3: // throwing turnout
-    if (turnoutAngle == thrownPosition) {
-      turnoutClosed = false;
-      digitalWrite(frogRelayPin, turnoutClosed);
+    if (turnoutPosition == turnoutThrownPosition) {
+      turnoutIsClosed = false;
+      digitalWrite(frogRelayPin, turnoutIsClosed);
       turnoutTransition = 34;
     } 
   break;
@@ -127,9 +127,9 @@ switch(turnoutState) {
   break;
 
   case 7: // closing turnout
-  if (turnoutAngle == closedPosition) {
-    turnoutClosed = true;
-    digitalWrite(frogRelayPin, turnoutClosed);
+  if (turnoutPosition == turnoutClosedPosition) {
+    turnoutIsClosed = true;
+    digitalWrite(frogRelayPin, turnoutIsClosed);
     turnoutTransition = 78;
   }  
   break;
@@ -147,7 +147,7 @@ switch(turnoutTransition) {
   break;
 
   case 23: // signal at danger: throw turnout
-    targetPosition = thrownPosition;
+    turnoutTarget = turnoutThrownPosition;
     turnoutTransition = 0;
     turnoutState = 3;
   break;
@@ -170,7 +170,7 @@ switch(turnoutTransition) {
   break;
 
   case 67: // colour signal at danger
-    targetPosition = closedPosition;
+    turnoutTarget = turnoutClosedPosition;
     turnoutTransition = 0;
     turnoutState = 7;
   break;
@@ -186,20 +186,20 @@ switch(turnoutTransition) {
     turnoutState = 1; 
   break;
 }
-  if (turnoutAngle != targetPosition && millis() > turnoutThrowDelay) throwTurnout();
+  if (turnoutPosition != turnoutTarget && millis() > turnoutMoveDelay) throwTurnout();
   if (signalPosition != signalTarget && millis() > signalThrowDelay) moveSignal();
 
   /* reading sensors */
   if(digitalRead(frontSensorPin) == LOW){
-    if (turnoutClosed){
+    if (turnoutIsClosed){
       signalTarget = dangerPosition;
     } else {
       colourSignalDanger(true);
     }
   }
   
-  if(digitalRead(throughSensorPin) == LOW && turnoutClosed) signalTarget = proceedPosition;
-  if(digitalRead(divergeSensorPin) == LOW && !turnoutClosed) colourSignalDanger(false);
+  if(digitalRead(throughSensorPin) == LOW && turnoutIsClosed) signalTarget = proceedPosition;
+  if(digitalRead(divergeSensorPin) == LOW && !turnoutIsClosed) colourSignalDanger(false);
 
   
 }
